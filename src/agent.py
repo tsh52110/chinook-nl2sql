@@ -32,9 +32,23 @@ Rules:
 - Return only the columns needed to answer the question.
 {few_shot_block}"""
 
-# Hand-written examples, disjoint from the 50-question eval set.
-# Empty at baseline; populated in the improvement pass (see README).
-FEW_SHOT_EXAMPLES: list[dict] = []
+# Hand-written examples, disjoint from the 50-question eval set, written after
+# baseline error analysis (see README). They demonstrate: keeping strftime()
+# output as text (no CAST), the revenue expression, and join+aggregate shape.
+FEW_SHOT_EXAMPLES: list[dict] = [
+    {
+        "question": "How many invoices were issued in each calendar month, across all years?",
+        "sql": "SELECT strftime('%m', InvoiceDate) AS Month, COUNT(*) AS InvoiceCount\nFROM Invoice\nGROUP BY Month",
+    },
+    {
+        "question": "What is the total sales revenue from tracks in the 'Jazz' genre?",
+        "sql": "SELECT SUM(il.UnitPrice * il.Quantity) AS Revenue\nFROM InvoiceLine il\nJOIN Track t ON t.TrackId = il.TrackId\nJOIN Genre g ON g.GenreId = t.GenreId\nWHERE g.Name = 'Jazz'",
+    },
+    {
+        "question": "Which artist has the most tracks? Show the artist name and the track count.",
+        "sql": "SELECT ar.Name, COUNT(*) AS TrackCount\nFROM Artist ar\nJOIN Album al ON al.ArtistId = ar.ArtistId\nJOIN Track t ON t.AlbumId = al.AlbumId\nGROUP BY ar.ArtistId\nORDER BY TrackCount DESC\nLIMIT 1",
+    },
+]
 
 ERROR_FEEDBACK_TEMPLATE = """Your SQL failed to execute.
 
