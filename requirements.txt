@@ -1,0 +1,5 @@
+anthropic>=0.90
+sqlglot>=27
+streamlit>=1.45
+pandas>=2.2
+openpyxl>=3.1
