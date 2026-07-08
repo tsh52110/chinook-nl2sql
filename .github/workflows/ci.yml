@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      live_eval:
+        description: "Run the live 50-question eval (spends API credits)"
+        type: boolean
+        default: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check .
+      - name: Unit tests + mocked eval regression gate
+        # No API key in env: the eval-harness tests mock the LLM, so this job
+        # proves extraction -> guardrail -> execution -> scoring end to end
+        # at zero cost. It fails if the guardrail lets a write through or the
+        # scorer stops matching gold results.
+        run: pytest tests/ -q
+
+  live-eval:
+    # Manual only: spends real API credits.
+    if: github.event_name == 'workflow_dispatch' && inputs.live_eval
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Live eval (few-shot, full 50)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python evals/run_eval.py --few-shot --xlsx eval_results.xlsx
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: eval_results.xlsx
